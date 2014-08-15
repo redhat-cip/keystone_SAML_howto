@@ -15,22 +15,22 @@ Now that our federation bricks are in place, let's try it with Keystone. The sim
 
 From now on we'll assume you have a similar deployment with `admin` and `demo` users and projects, and `admin` and `_member_` roles.
 
-The [official documentation](http://docs.openstack.org/developer/keystone/configure_federation.html) gives all the steps, in a very clear fashion, in order to plug federation into keystone.
+The [official documentation](http://docs.openstack.org/developer/keystone/configure_federation.html) gives all the steps, in a very clear fashion, in order to plug federation into Keystone.
 
 If you've followed part 2, there are only two steps you need to adapt:
-* Configure your keystone `vhost` (located at `/etc/apache2/sites-enabled/keystone.conf` if you installed keystone with devstack) [as it is explained on the Keystone docs](http://docs.openstack.org/developer/keystone/configure_federation.html#configure-apache-httpd-for-mod-shibboleth). I choose to keep the auth parameters from part 2 in the `<LocationMatch /v3/OS-FEDERATION/identity_providers/.*?/protocols/saml2/auth>` stanza, so that I am prompted for authentication in the browser if no SSO session exists. Make sure to remove the `ShibRequireAll` rule if you're using Apache 2.4+. Since we've been working with SSL so far, we'll have to keep doing so and you have to enable SSL in the `vhost`.
+* Configure your Keystone `vhost` (located at `/etc/apache2/sites-enabled/keystone.conf` if you installed Keystone with devstack) [as it is explained on the Keystone docs](http://docs.openstack.org/developer/keystone/configure_federation.html#configure-apache-httpd-for-mod-shibboleth). I choose to keep the auth parameters from part 2 in the `<LocationMatch /v3/OS-FEDERATION/identity_providers/.*?/protocols/saml2/auth>` stanza, so that I am prompted for authentication in the browser if no SSO session exists. Make sure to remove the `ShibRequireAll` rule if you're using Apache 2.4+. Since we've been working with SSL so far, we'll have to keep doing so and you have to enable SSL in the `vhost`.
 ```
  **TODO** Add copy of vhost here
 ```
-* Enable the federation extension in keystone, [as explained on the official docs](http://docs.openstack.org/developer/keystone/extensions/federation.html). At the time of this writing, the external auth method must be disabled for saml2 to work properly, but [a patch is on its way](https://review.openstack.org/#/c/111953/).
+* Enable the federation extension in Keystone, [as explained on the official docs](http://docs.openstack.org/developer/keystone/extensions/federation.html). At the time of this writing, the external auth method must be disabled for saml2 to work properly, but [a patch is on its way](https://review.openstack.org/#/c/111953/).
 
-Finally, if you've followed part 2, we need to update the SP metadata on the IdP to reflect the new service port (keystone's port 5000). Add the following lines to `/opt/idp-shibboleth/metadata/sp-metadata.xml` on your IdP server:
+Finally, if you've followed part 2, we need to update the SP metadata on the IdP to reflect the new service port (Keystone's port 5000). Add the following lines to `/opt/idp-shibboleth/metadata/sp-metadata.xml` on your IdP server:
 ```XML
         <md:ArtifactResolutionService Binding="urn:oasis:names:tc:SAML:2.0:bindings:SOAP" Location="https://sp.cloudwatt.test:5000/Shibboleth.sso/Artifact/SOAP" index="11"/>
     <md:SingleLogoutService Binding="urn:oasis:names:tc:SAML:2.0:bindings:SOAP" Location="https://sp.cloudwatt.test:5000/Shibboleth.sso/SLO/SOAP"/>     <md:SingleLogoutService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect" Location="https://sp.cloudwatt.test:5000/Shibboleth.sso/SLO/Redirect"/>     <md:SingleLogoutService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST" Location="https://sp.cloudwatt.test:5000/Shibboleth.sso/SLO/POST"/>     <md:SingleLogoutService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Artifact" Location="https://sp.cloudwatt.test:5000/Shibboleth.sso/SLO/Artifact"/>     <md:AssertionConsumerService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST" Location="https://sp.cloudwatt.test:5000/Shibboleth.sso/SAML2/POST" index="11"/>     <md:AssertionConsumerService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST-SimpleSign" Location="https://sp.cloudwatt.test:5000/Shibboleth.sso/SAML2/POST-SimpleSign" index="12"/>     <md:AssertionConsumerService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Artifact" Location="https://sp.cloudwatt.test:5000/Shibboleth.sso/SAML2/Artifact" index="13"/>     <md:AssertionConsumerService Binding="urn:oasis:names:tc:SAML:2.0:bindings:PAOS" Location="https://sp.cloudwatt.test:5000/Shibboleth.sso/SAML2/ECP" index="14"/>     <md:AssertionConsumerService Binding="urn:oasis:names:tc:SAML:1.0:profiles:browser-post" Location="https://sp.cloudwatt.test:5000/Shibboleth.sso/SAML/POST" index="15"/>     <md:AssertionConsumerService Binding="urn:oasis:names:tc:SAML:1.0:profiles:artifact-01" Location="https://sp.cloudwatt.test:5000/Shibboleth.sso/SAML/Artifact" index="16"/>
 ```
 
-Now let's create some groups, federation mappings and a protocol in keystone. This is all done with the V3, which is well covered by the `keystoneclient` library and the trunk version of the `OpenstackClient` CLI, but not yet available in packaged versions as of this writing. We'll do it the cool way, with cURL calls.
+Now let's create some groups, federation mappings and a protocol in Keystone. This is all done with the V3, which is well covered by the `keystoneclient` library and the trunk version of the `OpenstackClient` CLI, but not yet available in packaged versions as of this writing. We'll do it the cool way, with cURL calls.
 
 When applicable, replace `XXXX` by the service token you defined in your local.conf file, or the one set in `/etc/keystone/keystone.conf`.
 
@@ -39,7 +39,7 @@ Create a group for the `_member_` role:
   curl -i -d '{     "group": {         "description": "member group",         "domain_id": "default",         "name": "membergroup"     } }' -X POST http://sp.cloudwatt.test:5000/v3/groups -H "Content-Type: application/json" -H "X-Auth-Token: XXXX"
 ```
 
-Get the group id from keystone's response, in my case it was `f610b34a922449a590734fc3955518b9`.
+Get the group id from Keystone's response, in my case it was `f610b34a922449a590734fc3955518b9`.
 
 Get the `_member_` role id, this time you can simply use `keystone role-list` to get it. In my case: `9fe2ff9ee4384b1894a90878d3e92bab`. Get the `demo` project's id as well with `keystone tenant-list`, I got `6616831a20124ab88a31d9c763b54e17`.
 
@@ -49,17 +49,17 @@ We can now assign the `_member_` role on the `demo` project to our group, follow
   curl -i -X PUT http://sp.cloudwatt.test:5000/v3/projects/6616831a20124ab88a31d9c763b54e17/groups/f610b34a922449a590734fc3955518b9/roles/9fe2ff9ee4384b1894a90878d3e92bab -H "X-Auth-Token: XXXX"
 ```
 
-Let's declare our identity provider in keystone, we will name it `testIdP` (which is also its id, so it has to be unique):
+Let's declare our identity provider in Keystone, we will name it `testIdP` (which is also its id, so it has to be unique):
 ```bash
     curl -si -H"X-Auth-Token:XXXX" -H "Content-type: application/json" -d '{ "identity_provider": { "description": "cloudwatt test IdP", "enabled": true } }' -X PUT http://sp.cloudwatt.test:5000/v3/OS-FEDERATION/identity_providers/testIdP
 ```
 
-Now we will create a mapping. I want that people belonging to the `user` group in my LDAP directory get access to the `demo` project as themselves, and that people belonging to the `admin` group get to act as the keystone `admin` account. You can find explanations on the mapping rules syntax and examples on the following links:
+Now we will create a mapping. I want that people belonging to the `user` group in my LDAP directory get access to the `demo` project as themselves, and that people belonging to the `admin` group get to act as the Keystone `admin` account. You can find explanations on the mapping rules syntax and examples on the following links:
 * [OpenStack's Identity API readme - Federation Mappings](https://github.com/openstack/identity-api/blob/master/v3/src/markdown/identity-api-v3-os-federation-ext.md#mappings-os-federationmappings)
 * [OpenStack's Identity API readme - Example Mapping Rules](https://github.com/openstack/identity-api/blob/master/v3/src/markdown/identity-api-v3-os-federation-ext.md#example-mapping-rules)
 
 Basically, each rule contains two parts:
-* The `local` part, dealing with the keystone properties like the username or the group id to assign to the authenticating user
+* The `local` part, dealing with the Keystone properties like the username or the group id to assign to the authenticating user
 * The `remote` part, that sets conditions on the SAML assertions ("type"). If all the conditions are fulfilled, the authenticating user is mapped according to the `local` directives.
 
 The `remote` conditions can be:
@@ -82,9 +82,9 @@ We can finally create our saml2 protocol:
   curl -si -H"X-Auth-Token:XXXX" -H "Content-type: application/json" -d '{ "protocol": { "mapping_id": "testmapping" } }' -X PUT http://sp.cloudwatt.test:5000/v3/OS-FEDERATION/identity_providers/testIdP/protocols/saml2
 ```
 
-It has to be called `saml2` if you followed the instructions from the keystone documentation above about `LocationMatch`, otherwise just name it any way you want.
+It has to be called `saml2` if you followed the instructions from the Keystone documentation above about `LocationMatch`, otherwise just name it any way you want.
 
-You are now ready to fetch an unscoped token from keystone using SAML, open a browser with developer tools, or at least the capability to display the response headers, and head to `https://sp.cloudwatt.test:5000/v3/OS-FEDERATION/identity_providers/testIdP/protocols/saml2/auth`. You'll be redirected to the IdP login page, and once you authenticate, you'll receive a JSON payload summarizing the saml2 auth. The unscoped token is stored in the `X-Subject-Token` header.
+You are now ready to fetch an unscoped token from Keystone using SAML, open a browser with developer tools, or at least the capability to display the response headers, and head to `https://sp.cloudwatt.test:5000/v3/OS-FEDERATION/identity_providers/testIdP/protocols/saml2/auth`. You'll be redirected to the IdP login page, and once you authenticate, you'll receive a JSON payload summarizing the saml2 auth. The unscoped token is stored in the `X-Subject-Token` header.
 
 The next logical step is to check what projects and domains you're allowed in; you can do this with the following `cURL` commands:
 ```bash
@@ -139,7 +139,7 @@ AuthLDAPBindPassword "bindpassword"
 
 This has, of course, to be adapted to your own setup. My test IdP, as discussed in part 1, uses a LDAP backend for authentication, so I must rely on Apache's LDAP module (which is usually loaded by default, otherwise it can be loaded with the command `a2enmod ldap`).
 
-Restart apache and the IdP is ready to go, [I wrote a script to help you test it](https://gist.github.com/mhuin/e3fcd3be028547453467). This script will generate the SOAP message needed to query the ECP endpoint. Modify it to suit your needs or use the environment variables as demonstrated in the script, you might need to change `utcnow()` for `now()` if your IdP server is not on UTC time. Then, if you run:
+Restart Apache and the IdP is ready to go, [I wrote a script to help you test it](https://gist.github.com/mhuin/e3fcd3be028547453467). This script will generate the SOAP message needed to query the ECP endpoint. Modify it to suit your needs or use the environment variables as demonstrated in the script, you might need to change `utcnow()` for `now()` if your IdP server is not on UTC time. Then, if you run:
 ```bash
   python soap_gen.py && curl -k -d @soap.xml -H "Content-Type: application/vnd.paos+xml" --basic -u username:password https://idp.cloudwatt.test/idp/profile/SAML2/SOAP/ECP | xmllint --pretty 1 -
 ```
