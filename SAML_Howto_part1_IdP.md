@@ -1,4 +1,4 @@
-# Introduction to federated authentication with shibboleth
+# Introduction to federated authentication with Shibboleth
 
 One of the most exciting features coming up for [Openstack's Identity service - Keystone]( http://keystone.openstack.org) is federated authentication. This work begun during the Icehouse release cycle, which brought an early implementation of federated authentication on the server side, and there is an ongoing effort to meet the Juno release with improved features and support of federated authentication on the client side.
 
@@ -33,7 +33,7 @@ There is also one important requirement to have federation with keystone: keysto
 The previous scenario now looks like this for keystone:
 
 1. Alice from Acme Corp. needs a keystone token to use Acme's private cloud's Compute resources. She hits the endpoint` https://keystone:5000/v3/OS-FEDERATION/identity_providers/ACMECORP/protocols/ACMEPROTOCOL/auth` with her web browser.
-2. The `apache_shib2` module ("shibboleth") protects this URL and is configured to forward Alice's browser to Acme Corp's IdP (this is all done in Apache, at this point, no keystone code has been executed so far). Alice authenticates against the IdP.
+2. The `apache_shib2` module ("Shibboleth") protects this URL and is configured to forward Alice's browser to Acme Corp's IdP (this is all done in Apache, at this point, no keystone code has been executed so far). Alice authenticates against the IdP.
 3. Upon success, she is sent back to the keystone endpoint, along with SAML assertions about her. Keystone checks these assertions against ACMEPROTOCOL, and if it is a match, Alice receives an unscoped token from keystone, containing the user (real or temporary) she is mapped on, and the keystone groups she belongs to.
 4. She then authenticates normally with her unscoped token, requesting a token scoped to a given domain and project; if it is alright with the groups and/or the keystone user she was mapped to, she then gets a scoped token that she can use with the Compute API.
 
@@ -97,7 +97,7 @@ In the same file, uncomment the Connector stanza for port 8009 and adapt it:
            address="127.0.0.1" enableLookups="false" tomcatAuthentication="false" />
 ```
 
-Get the latest shibboleth version from the shibboleth website. We'll use 2.4.0:
+Get the latest Shibboleth version from the Shibboleth website. We'll use 2.4.0:
 ```Bash
   cd /usr/local/src
   curl -O http://shibboleth.net/downloads/identity-provider/2.4.0/shibboleth-identityprovider-2.4.0-bin.zip
@@ -113,7 +113,7 @@ Endorse XML/Xerces libraries from the Shibboleth IdP package in `$CATALINA_HOME/
   cp ./endorsed/*.jar /usr/share/tomcat7/endorsed/
 ```
 
-Run shibboleth's ant installer (keep the default target location setting, ie `/opt/shibboleth-idp/`):
+Run Shibboleth's ant installer (keep the default target location setting, ie `/opt/shibboleth-idp/`):
 ```Bash
   cd /usr/local/src/shibboleth-identityprovider-2.4.0/
   env IdPCertLifetime=3 JAVA_HOME=/usr/lib/jvm/default-java ./install.sh
@@ -345,7 +345,7 @@ Be aware that tomcat7 takes a LOT of time to start up. Check the Tomcat log in `
 That's it ! (Theoretically) Congratulations !
 
 #### Troubleshooting
-The following resources can be useful for troubleshooting and more information about shibboleth IdPs:
+The following resources can be useful for troubleshooting and more information about Shibboleth IdPs:
 
 * ["Shibboleth Test Bed - Part 2: Installing the IdP" on CCSI](https://www.acceleratecarboncapture.org/drupal/blog/patton/public/shibboleth-test-bed-part-2-installing-idp)
 * ["LogFiles - Shibboleth 1.x" on Shibboleth.net](https://wiki.shibboleth.net/confluence/display/SHIB/LogFiles)
