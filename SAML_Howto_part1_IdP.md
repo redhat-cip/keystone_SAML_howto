@@ -348,7 +348,7 @@ That's it ! (Theoretically) Congratulations !
 The following resources can be useful for troubleshooting and more information about Shibboleth IdPs:
 
 * ["Shibboleth Test Bed - Part 2: Installing the IdP" on CCSI](https://www.acceleratecarboncapture.org/drupal/blog/patton/public/shibboleth-test-bed-part-2-installing-idp)
-* ["LogFiles - Shibboleth 1.x" on Shibboleth.net](https://wiki.shibboleth.net/confluence/display/SHIB/LogFiles)
+* ["LogFiles - Shibboleth 1.x" on Shibboleth.net](https://wiki.shibboleth.net/confluence/display/SHIB/LogFiles) - activate logging
 * ["IdPConfiguration - Shibboleth 2.x" on Shibboleth.net](https://wiki.shibboleth.net/confluence/display/SHIB2/IdPConfiguration)
 
 I strongly advise to set logging as verbose as possible in order to troubleshoot problems. This is how I found out I was using incorrect certificates, and that my LDAP credentials were incorrect.
