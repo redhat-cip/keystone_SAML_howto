@@ -84,7 +84,7 @@ Set the JAVA_OPTS variables in `/etc/default/tomcat7`:
   JAVA_OPTS="-Djava.awt.headless=true -Xmx512M -XX:MaxPermSize=128M -Dcom.sun.security.enableCRLDP=true"
 ```
 
-Disable autodeploying when looking for updates in `/etc/tomcat6/server.xml`:
+Disable autodeploying when looking for updates in `/etc/tomcat7/server.xml`:
 ```Apache
 <Host name="localhost" appBase="webapps"
         unpackWARs="true" autoDeploy="false"
@@ -340,7 +340,7 @@ Redeploy the web application (keep the values from the first time you ran this) 
   service tomcat7 restart
 ```
 
-Be aware that tomcat7 takes a LOT of time to start up. Check the Tomcat log in `/var/log/tomcat6/catalina.out` for errors and to make sure the service has finally started.
+Be aware that tomcat7 takes a LOT of time to start up. Check the Tomcat log in `/var/log/tomcat7/catalina.out` for errors and to make sure the service has finally started.
 
 That's it ! (Theoretically) Congratulations !
 
