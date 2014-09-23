@@ -19,14 +19,64 @@ The [official documentation](http://docs.openstack.org/developer/keystone/config
 
 If you've followed part 2, there are only two steps you need to adapt:
 * Configure your Keystone `vhost` (located at `/etc/apache2/sites-enabled/keystone.conf` if you installed Keystone with devstack) [as it is explained on the Keystone docs](http://docs.openstack.org/developer/keystone/configure_federation.html#configure-apache-httpd-for-mod-shibboleth). I choose to keep the auth parameters from part 2 in the `<LocationMatch /v3/OS-FEDERATION/identity_providers/.*?/protocols/saml2/auth>` stanza, so that I am prompted for authentication in the browser if no SSO session exists. Make sure to remove the `ShibRequireAll` rule if you're using Apache 2.4+. Since we've been working with SSL so far, we'll have to keep doing so and you have to enable SSL in the `vhost`.
-```
- **TODO** Add copy of vhost here
+```Apache
+Listen 5000
+Listen 35357
+
+<VirtualHost *:5000>
+    SSLEngine on
+    SSLCertificateFile      /etc/ssl/certs/sp-test.pem
+    SSLCertificateKeyFile /etc/ssl/private/sp-test.key
+
+    <Location /Shibboleth.sso>
+        Satisfy Any
+	SetHandler Shib
+    </Location>
+
+    WSGIDaemonProcess keystone-public processes=5 threads=1 user=cloud
+    WSGIProcessGroup keystone-public
+    WSGIScriptAliasMatch ^(/v3/OS-FEDERATION/identity_providers/.*?/protocols/.*?/auth)$ /var/www/keystone/main/$1
+    WSGIScriptAlias / /var/www/keystone/main
+    WSGIApplicationGroup %{GLOBAL}
+    ErrorLog /var/log/apache2/keystone
+    LogLevel debug
+    CustomLog /var/log/apache2/access.log combined
+
+    <LocationMatch /v3/OS-FEDERATION/identity_providers/.*?/protocols/saml2/auth>
+        ShibRequestSetting requireSession 1
+        AuthType shibboleth
+        ShibRequireSession On
+        ShibExportAssertion Off
+        Require valid-user
+        #ShibRequestSetting requireSession 1
+        #AuthType shibboleth
+        #ShibRequireSession On
+        #ShibRequireAll On
+        #ShibExportAssertion On
+        #Require shibboleth
+    </LocationMatch>
+
+</VirtualHost>
+
+<VirtualHost *:35357>
+    WSGIDaemonProcess keystone-admin processes=5 threads=1 user=cloud
+    WSGIProcessGroup keystone-admin
+    WSGIScriptAlias / /var/www/keystone/admin
+    WSGIApplicationGroup %{GLOBAL}
+    ErrorLog /var/log/apache2/keystone
+    LogLevel debug
+    CustomLog /var/log/apache2/access.log combined
+</VirtualHost>
+
+# Workaround for missing path on RHEL6, see
+#  https://bugzilla.redhat.com/show_bug.cgi?id=1121019
+WSGISocketPrefix /var/run/apache2
 ```
 * Enable the federation extension in Keystone, [as explained on the official docs](http://docs.openstack.org/developer/keystone/extensions/federation.html). At the time of this writing, the external auth method must be disabled for saml2 to work properly, but [a patch is on its way](https://review.openstack.org/#/c/111953/).
 
 Finally, if you've followed part 2, we need to update the SP metadata on the IdP to reflect the new service port (Keystone's port 5000). Add the following lines to `/opt/idp-shibboleth/metadata/sp-metadata.xml` on your IdP server:
 ```XML
-        <md:ArtifactResolutionService Binding="urn:oasis:names:tc:SAML:2.0:bindings:SOAP" Location="https://sp.cloudwatt.test:5000/Shibboleth.sso/Artifact/SOAP" index="11"/>
+<md:ArtifactResolutionService Binding="urn:oasis:names:tc:SAML:2.0:bindings:SOAP" Location="https://sp.cloudwatt.test:5000/Shibboleth.sso/Artifact/SOAP" index="11"/>
     <md:SingleLogoutService Binding="urn:oasis:names:tc:SAML:2.0:bindings:SOAP" Location="https://sp.cloudwatt.test:5000/Shibboleth.sso/SLO/SOAP"/>     <md:SingleLogoutService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect" Location="https://sp.cloudwatt.test:5000/Shibboleth.sso/SLO/Redirect"/>     <md:SingleLogoutService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST" Location="https://sp.cloudwatt.test:5000/Shibboleth.sso/SLO/POST"/>     <md:SingleLogoutService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Artifact" Location="https://sp.cloudwatt.test:5000/Shibboleth.sso/SLO/Artifact"/>     <md:AssertionConsumerService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST" Location="https://sp.cloudwatt.test:5000/Shibboleth.sso/SAML2/POST" index="11"/>     <md:AssertionConsumerService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST-SimpleSign" Location="https://sp.cloudwatt.test:5000/Shibboleth.sso/SAML2/POST-SimpleSign" index="12"/>     <md:AssertionConsumerService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Artifact" Location="https://sp.cloudwatt.test:5000/Shibboleth.sso/SAML2/Artifact" index="13"/>     <md:AssertionConsumerService Binding="urn:oasis:names:tc:SAML:2.0:bindings:PAOS" Location="https://sp.cloudwatt.test:5000/Shibboleth.sso/SAML2/ECP" index="14"/>     <md:AssertionConsumerService Binding="urn:oasis:names:tc:SAML:1.0:profiles:browser-post" Location="https://sp.cloudwatt.test:5000/Shibboleth.sso/SAML/POST" index="15"/>     <md:AssertionConsumerService Binding="urn:oasis:names:tc:SAML:1.0:profiles:artifact-01" Location="https://sp.cloudwatt.test:5000/Shibboleth.sso/SAML/Artifact" index="16"/>
 ```
 
@@ -36,7 +86,14 @@ When applicable, replace `XXXX` by the service token you defined in your local.c
 
 Create a group for the `_member_` role:
 ```bash
-  curl -i -d '{     "group": {         "description": "member group",         "domain_id": "default",         "name": "membergroup"     } }' -X POST http://sp.cloudwatt.test:5000/v3/groups -H "Content-Type: application/json" -H "X-Auth-Token: XXXX"
+curl -i -d '{
+             "group": {         
+                            "description": "member group",
+                            "domain_id": "default",
+                            "name": "membergroup"
+                      } 
+            }'
+-X POST http://sp.cloudwatt.test:5000/v3/groups -H "Content-Type: application/json" -H "X-Auth-Token: XXXX"
 ```
 
 Get the group id from Keystone's response, in my case it was `f610b34a922449a590734fc3955518b9`.
@@ -45,13 +102,18 @@ Get the `_member_` role id, this time you can simply use `keystone role-list` to
 
 We can now assign the `_member_` role on the `demo` project to our group, following this syntax:
 ```bash
-  curl -i -X PUT http://sp.cloudwatt.test/v3/projects/$projectID/groups/$groupID/roles/$roleID -H "X-Auth-Token: XXXX"::
-  curl -i -X PUT http://sp.cloudwatt.test:5000/v3/projects/6616831a20124ab88a31d9c763b54e17/groups/f610b34a922449a590734fc3955518b9/roles/9fe2ff9ee4384b1894a90878d3e92bab -H "X-Auth-Token: XXXX"
+curl -i -X PUT http://sp.cloudwatt.test/v3/projects/$projectID/groups/$groupID/roles/$roleID -H "X-Auth-Token: XXXX"::
+curl -i -X PUT http://sp.cloudwatt.test:5000/v3/projects/6616831a20124ab88a31d9c763b54e17/groups/f610b34a922449a590734fc3955518b9/roles/9fe2ff9ee4384b1894a90878d3e92bab -H "X-Auth-Token: XXXX"
 ```
 
 Let's declare our identity provider in Keystone, we will name it `testIdP` (which is also its id, so it has to be unique):
 ```bash
-    curl -si -H"X-Auth-Token:XXXX" -H "Content-type: application/json" -d '{ "identity_provider": { "description": "cloudwatt test IdP", "enabled": true } }' -X PUT http://sp.cloudwatt.test:5000/v3/OS-FEDERATION/identity_providers/testIdP
+curl -si -H"X-Auth-Token:XXXX" -H "Content-type: application/json" -d 
+    '{ "identity_provider": { 
+                              "description": "cloudwatt test IdP", 
+                              "enabled": true 
+                            } 
+     }' -X PUT http://sp.cloudwatt.test:5000/v3/OS-FEDERATION/identity_providers/testIdP
 ```
 
 Now we will create a mapping. I want that people belonging to the `user` group in my LDAP directory get access to the `demo` project as themselves, and that people belonging to the `admin` group get to act as the Keystone `admin` account. You can find explanations on the mapping rules syntax and examples on the following links:
@@ -72,29 +134,91 @@ In the `local` definitions, you can set variable substitutions, like `{0}, {1}, 
 
 Here is the command to create our mapping:
 ```bash
-  curl -si -H"X-Auth-Token:XXXX" -H "Content-type: application/json" \
-      -d '{ "mapping": {         "rules": [             {                 "local":[                     {                         "user": {                             "name": "admin"                         }                     }                 ],                 "remote": [                     {                         "type": "isMemberOf",                         "regex": true,                         "any_one_of":                         ["admin"]                     }                 ]             },                         {                 "local":[                     {                         "user": {                             "name": "{0}"                         }                     },                     {                         "group": {                             "id": "f610b34a922449a590734fc3955518b9"                         }                     }                 ],                 "remote": [                     {                         "type": "uid"                        },                     {                         "type": "isMemberOf",                         "regex": true,                         "any_one_of":                         ["^user",                          ";user"]                     }                 ]             }         ]     } }' \
-      -X PUT http://sp.cloudwatt.test:5000/v3/OS-FEDERATION/mappings/testmapping
+curl -si -H"X-Auth-Token:XXXX" -H "Content-type: application/json" -d 
+'{ "mapping": {
+                "rules": [
+                            {                 
+                                "local":[
+                                            {
+                                                "user": {
+                                                            "name": "admin"
+                                                        }
+                                            }
+                                        ],
+                                "remote":[
+                                            {
+                                                "type": "isMemberOf",
+                                                "regex": true,
+                                                "any_one_of": ["admin"]                     
+                                            }                 
+                                         ]
+                            },                         
+                            {                 
+                                "local":[
+                                            {                         
+                                                "user": {                             
+                                                            "name": "{0}"
+                                                        }                    
+                                            },
+                                            {                         
+                                                "group": {
+                                                            "id": "f610b34a922449a590734fc3955518b9"
+                                                         }
+                                            }
+                                        ],
+                                "remote":[                     
+                                            {                         
+                                                "type": "uid"                        
+                                            },
+                                            {                         
+                                                "type": "isMemberOf",
+                                                "regex": true,                         
+                                                "any_one_of": ["^user", ";user"]
+                                            }
+                                         ]
+                            }        
+                         ]  
+              }
+}' -X PUT http://sp.cloudwatt.test:5000/v3/OS-FEDERATION/mappings/testmapping
 ```
 
 We can finally create our saml2 protocol:
 ```bash
-  curl -si -H"X-Auth-Token:XXXX" -H "Content-type: application/json" -d '{ "protocol": { "mapping_id": "testmapping" } }' -X PUT http://sp.cloudwatt.test:5000/v3/OS-FEDERATION/identity_providers/testIdP/protocols/saml2
+curl -si -H"X-Auth-Token:XXXX" -H "Content-type: application/json" -d '{ "protocol": { "mapping_id": "testmapping" } }' -X PUT http://sp.cloudwatt.test:5000/v3/OS-FEDERATION/identity_providers/testIdP/protocols/saml2
 ```
 
 It has to be called `saml2` if you followed the instructions from the Keystone documentation above about `LocationMatch`, otherwise just name it any way you want.
 
 You are now ready to fetch an unscoped token from Keystone using SAML, open a browser with developer tools, or at least the capability to display the response headers, and head to `https://sp.cloudwatt.test:5000/v3/OS-FEDERATION/identity_providers/testIdP/protocols/saml2/auth`. You'll be redirected to the IdP login page, and once you authenticate, you'll receive a JSON payload summarizing the saml2 auth. The unscoped token is stored in the `X-Subject-Token` header.
 
+![fetching an unscoped token through firefox developer mode](https://github.com/enovance/keystone_SAML_howto/blob/master/images/unscoped_token.png)
+
 The next logical step is to check what projects and domains you're allowed in; you can do this with the following `cURL` commands:
 ```bash
-  curl -k -X GET -H "X-Auth-Token: your_unscoped_token" https://sp.cloudwatt.test:5000/v3/OS-FEDERATION/projects
-  curl -k -X GET -H "X-Auth-Token: your_unscoped_token" https://sp.cloudwatt.test:5000/v3/OS-FEDERATION/domains
+curl -k -X GET -H "X-Auth-Token: your_unscoped_token" https://sp.cloudwatt.test:5000/v3/OS-FEDERATION/projects
+curl -k -X GET -H "X-Auth-Token: your_unscoped_token" https://sp.cloudwatt.test:5000/v3/OS-FEDERATION/domains
 ```
 
 Knowing these, you can finally request a scoped token and do stuff:
 ```bash
-  curl -k -X POST -H "Content-Type: application/json" -d '{"auth":{"identity":{"methods":["saml2"],"saml2":{"id":"your_unscoped_token"}},"scope":{"project":{"domain": {"name": "Default"},"name":"demo"}}}}' -D - https://sp.cloudwatt.test:5000/v3/auth/tokens
+curl -k -X POST -H "Content-Type: application/json" -d 
+'{"auth":{
+            "identity":{
+                        "methods":["saml2"],
+                        "saml2":{
+                                    "id":"your_unscoped_token"
+                                }
+                       },
+            "scope":{
+                        "project":{
+                                    "domain": {
+                                                "name": "Default"
+                                              },
+                                    "name":"demo"
+                                  }
+                    }
+         }
+}' -D - https://sp.cloudwatt.test:5000/v3/auth/tokens
 ```
 
 And fetch your scoped token, again, from the response header called `X-Subject-Token`.
@@ -126,14 +250,14 @@ After all we've done, activating ECP is rather easy. On the Identity Provider:
 3. Add the following in `/etc/apache2/sites-enabled/idp.conf` to enable Basic Auth on the ECP URL:
 
   ```XML
-                <Location /idp/profile/SAML2/SOAP/ECP>
-                AuthType Basic
-AuthName "Test IdP Basic Auth for ECP"
-require valid-user
-AuthBasicProvider ldap
-AuthLDAPURL ldap://localhost/ou=users,dc=cloudwatt,dc=test?uid
-AuthLDAPBindDN "cn=binduser,dc=cloudwatt,dc=test"
-AuthLDAPBindPassword "bindpassword"
+<Location /idp/profile/SAML2/SOAP/ECP>
+    AuthType Basic
+    AuthName "Test IdP Basic Auth for ECP"
+    require valid-user
+    AuthBasicProvider ldap
+    AuthLDAPURL ldap://localhost/ou=users,dc=cloudwatt,dc=test?uid
+    AuthLDAPBindDN "cn=binduser,dc=cloudwatt,dc=test"
+    AuthLDAPBindPassword "bindpassword"
 </Location>
   ```
 
