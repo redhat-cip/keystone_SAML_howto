@@ -32,12 +32,11 @@ There is also one important requirement to have federation with keystone: keysto
 
 The previous scenario now looks like this for keystone:
 
-1. Alice from Acme Corp. needs a keystone token to use Acme's private cloud's Compute resources. She hits the endpoint` https://keystone:5000/v3/OS-FEDERATION/identity_providers/ACMECORP/protocols/ACMEPROTOCOL/auth` with her web browser.
-2. The `apache_shib2` module ("Shibboleth") protects this URL and is configured to forward Alice's browser to Acme Corp's IdP (this is all done in Apache, at this point, no keystone code has been executed so far). Alice authenticates against the IdP.
-3. Upon success, she is sent back to the keystone endpoint, along with SAML assertions about her. Keystone checks these assertions against ACMEPROTOCOL, and if it is a match, Alice receives an unscoped token from keystone, containing the user (real or temporary) she is mapped on, and the keystone groups she belongs to.
-4. She then authenticates normally with her unscoped token, requesting a token scoped to a given domain and project; if it is alright with the groups and/or the keystone user she was mapped to, she then gets a scoped token that she can use with the Compute API.
+1. Alice from Acme Corp. needs a keystone token to use Acme's private cloud's Compute resources. She hits the endpoint` https://keystone:5000/v3/OS-FEDERATION/identity_providers/ACMECORP/protocols/ACMEPROTOCOL/auth` with her web browser.<br /> ![step1](https://github.com/enovance/keystone_SAML_howto/blob/master/images/SAML_step_01.png)
 
-(see pictures SAML_steps_*.png)
+2. The `apache_shib2` module ("Shibboleth") protects this URL and is configured to forward Alice's browser to Acme Corp's IdP (this is all done in Apache, at this point, no keystone code has been executed so far). Alice authenticates against the IdP.<br /> ![step2](https://github.com/enovance/keystone_SAML_howto/blob/master/images/SAML_step_02.png)<br /> ![step3](https://github.com/enovance/keystone_SAML_howto/blob/master/images/SAML_step_03.png)
+3. Upon success, she is sent back to the keystone endpoint, along with SAML assertions about her. Keystone checks these assertions against ACMEPROTOCOL, and if it is a match, Alice receives an unscoped token from keystone, containing the user (real or temporary) she is mapped on, and the keystone groups she belongs to.<br /> ![step4](https://github.com/enovance/keystone_SAML_howto/blob/master/images/SAML_step_04.png)<br /> ![step5](https://github.com/enovance/keystone_SAML_howto/blob/master/images/SAML_step_05.png)<br /> ![step6](https://github.com/enovance/keystone_SAML_howto/blob/master/images/SAML_step_06.png)
+4. She then authenticates normally with her unscoped token, requesting a token scoped to a given domain and project; if it is alright with the groups and/or the keystone user she was mapped to, she then gets a scoped token that she can use with the Compute API.
 
 ## What are the advantages of federation ?
 
@@ -72,7 +71,7 @@ First, a few pre-requisites:
 * ntp should be installed on your server.
 * unzip should be installed on your server.
 
-The IdP will use a LDAP backend, such as OpenLDAP, to store users. Creating such a backend is out of the scope of this series, but lots of resources can be found online; the directory we will use here looks a lot like [the one described in this tutorial](https://www.digitalocean.com/community/tutorials/how-to-install-and-configure-a-basic-ldap-server-on-an-ubuntu-12-04-vps).
+The IdP will use a LDAP backend, such as OpenLDAP, to store users. Creating such a backend is out of the scope of this series, but lots of resources can be found online; the directory we will use here looks a lot like [the one described in this tutorial](https://www.digitalocean.com/community/tutorials/how-to-install-and-configure-a-basic-ldap-server-on-an-ubuntu-12-04-vps).<br /> ![The test directory. Come on down to South Park ...](https://github.com/enovance/keystone_SAML_howto/blob/master/images/LDAP.png)
 
 The Shibboleth IdP service is served through tomcat, so let's install it:
 ```Bash
